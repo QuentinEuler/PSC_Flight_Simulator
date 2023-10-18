@@ -1,0 +1,51 @@
+#Simplification de la syntaxe SimConnect :
+
+from SimConnect import *
+import math
+import time
+
+sm = SimConnect()
+aq = AircraftRequests(sm, _time=2000)
+ae = AircraftEvents(sm)
+
+def get(arg):
+    val = call(arg)
+    print(val)
+    return(val)
+
+def call(arg):
+    val = None
+    if arg == "lat":
+        val = aq.get("PLANE_LATITUDE")
+    if arg == "long":
+        val = aq.get("PLANE_LONGITUDE")
+    if arg == "alt":
+        val = aq.get("PLANE_ALTITUDE")
+    if arg == "r_alt":
+        val = aq.get("PLANE_ALT_ABOVE_GROUND")
+    if arg == "bank":
+        val = aq.get("PLANE_BANK_DEGREES")
+    if arg == "pitch":
+        val = aq.get("PLANE_PITCH_DEGREES")
+    if arg == "abs_speed":
+        val = aq.get("AIRSPEED_TRUE")
+    if arg == "x_speed":
+        val = aq.get("VELOCITY_BODY_X")
+    if arg == "y_speed":
+        val = aq.get("VELOCITY_BODY_Y")
+    if arg == "z_speed":
+        val = aq.get("VELOCITY_BODY_Z")
+    if arg == "aileron":
+        val = aq.get("AILERON_POSITION")
+    if arg == "elevator":
+        val = aq.get("ELEVATOR_POSITION")
+    if arg == "throttle":
+        val = aq.get()
+    if arg == "brake":
+        val = aq.get("BRAKE_INDICATOR")
+    if arg == "cap":
+        val = aq.get("PLANE_HEADING_DEGREES_TRUE")
+    return val
+
+#Pour tester un appel :
+#get("cap")
