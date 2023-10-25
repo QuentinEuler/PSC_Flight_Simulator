@@ -117,7 +117,7 @@ class AircraftRequests() :
 
 def test() :
     sm = SimConnect(["thrust","weight","lift","drag"])
-    sm.control_column = 0.1
+    sm.control_column = 0.01
 
     for i in range(400) :
         sm.compute_state(1)
