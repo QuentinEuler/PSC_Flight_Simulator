@@ -1,23 +1,26 @@
-import numpy
+import numpy as np
 
-def Force() :
+class Force() :
     def __init__(self, sm, name = "empty_force") :
         self.plane = sm
         self.name = name
 
     def compute_force(self) :
-        return numpy.array([0,0,0])
+        return np.array([0,0,0])
 
-def Weight(Force) :
+class Weight(Force) :
     def __init__(self, sm) :
         super().__init__(sm, "weight")
 
         self.local_acceleration = 9.81
 
     def compute_force(self) :
-        return numpy.array([0,0,-self.plane.MASS*self.local_acceleration])
+        if self.plane.pos[2] > 0 :
+            return np.array([0,0,-self.plane.MASS*self.local_acceleration])
+        else :
+            return 0
 
-def Thrust(Force) :
+class Thrust(Force) :
     def __init__(self, sm) :
         super().__init__(sm, "thrust")
 
@@ -25,26 +28,26 @@ def Thrust(Force) :
         thrust = self.plane.control_column*self.plane.MAX_THRUST
         return thrust*self.plane.direction()
 
-def Drag(Force) :
+class Drag(Force) :
     def __init__(self, sm) :
         super().__init__(sm, "drag")
 
     def compute_force(self) :
-        return -self.plane.abs_speed()*self.plane.speed()*(1) # replace 1 with a more accurate formula taking the density of external air into account
+        return -self.plane.abs_speed()*self.plane.speed*(1) # replace 1 with a more accurate formula taking the density of external air into account
 
-def Lift(Force) :
+class Lift(Force) :
     def __init__(self, sm) :
         super().__init__(sm, "lift")
 
     def compute_force(self) :
-        return numpy.array([0,0,self.plane.abs_speed()**2*(1)]) # replace 1 with a more accurate formula taking the density of external air into account
+        return self.plane.abs_speed()**2*(1)*np.array([-np.sin(self.plane.pitch)*np.cos(self.plane.pitch),-np.sin(self.plane.pitch)*np.sin(self.plane.bank),np.cos(self.plane.pitch)]) # replace 1 with a more accurate formula taking the density of external air into account
 
 
 
-def SimConnect() :
-    def __init__(self) :
-        self.pos = numpy.array([0,0,0]) # x, y, z in meters
-        self.speed = numpy.array([0,0,0])
+class SimConnect() :
+    def __init__(self, frcs) :
+        self.pos = np.array([0,0,0]) # x, y, z in meters
+        self.speed = np.array([0,0,0])
 
         self.pitch = 0 # rads
         self.bank = 0 # rads
@@ -54,17 +57,29 @@ def SimConnect() :
         self.MASS = 300 # in kg
         self.MAX_THRUST = 30000 # in N
 
+        self.FORCES = []
+        for s in frcs :
+            f=Force(self)
+            if s == "weight" :
+                f = Weight(self)
+            elif s == "thrust" :
+                f = Thrust(self)
+            elif s == "drag" :
+                f = Drag(self)
+            elif s == "lift" :
+                f = Lift(self)
+            self.FORCES.append(f)
+
     def direction(self) :
-        return numpy.array([numpy.cos(self.plane.pitch)*numpy.cos(self.plane.bank),numpy.cos(self.plane.pitch)*numpy.sin(self.plane.bank),numpy.sin(self.plane.pitch)])
+        return np.array([np.cos(self.pitch)*np.cos(self.bank),np.cos(self.pitch)*np.sin(self.bank),np.sin(self.pitch)])
 
     def abs_speed(self) :
-        return numpy.sqrt(self.speed[0]**2 + self.speed[1]**2 + self.speed[2]**2)
+        return np.sqrt(self.speed[0]**2 + self.speed[1]**2 + self.speed[2]**2)
 
     def compute_state(self, dt=1) :
         resulting_force = 0
         for F in self.FORCES :
-            F.compute_force()
-            resulting_force += F
+            resulting_force += F.compute_force()
 
         accel = 1/self.MASS * resulting_force
 
@@ -72,7 +87,7 @@ def SimConnect() :
         
         self.pos = self.pos + self.speed*dt
 
-def AircraftRequests() :
+class AircraftRequests() :
     def __init__(self, sm, _time) :
         self.plane = sm
 
@@ -99,4 +114,16 @@ def AircraftRequests() :
     #if arg == "ELEVATOR_POSITION" :
     #if arg == "BRAKE_INDICATOR" :
     #if arg == "PLANE_HEADING_DEGREES_TRUE" :
- 
+
+def test() :
+    sm = SimConnect(["thrust","weight","lift","drag"])
+    sm.control_column = 0.1
+
+    for i in range(400) :
+        sm.compute_state(1)
+        print("time : %i seconds"%i)
+        print(sm.pos)
+        print(sm.speed)
+        print("\n\n")
+
+test()
