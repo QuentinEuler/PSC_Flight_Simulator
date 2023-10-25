@@ -1,4 +1,4 @@
-from ..simulateur import simconnect_interface as sim
+import simulator.simconnect_interface as sim
 
 class AI :
     def __init__(self) :
