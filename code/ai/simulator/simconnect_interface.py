@@ -1,6 +1,6 @@
 #Simplification de la syntaxe SimConnect :
 
-import simulateur.simulator as smlt
+import ai.simulateur.simulator as smlt
 import math
 import time
 

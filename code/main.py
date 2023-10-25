@@ -1,6 +1,5 @@
-import test
-import simulateur.simulator as smlt
-import simconnect_interface as sim
+import ai.simulateur.simulator as smlt
+import ai.simulateur.simconnect_interface as sim
 
 def main() :
     sm = smlt.SimConnect(["thrust","weight","lift","drag"])
