@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 class Force() :
     def __init__(self, sm, name = "empty_force") :
@@ -117,13 +118,27 @@ class AircraftRequests() :
 
 def test() :
     sm = SimConnect(["thrust","weight","lift","drag"])
-    sm.control_column = 0.01
+    sm.control_column = 0.1
 
-    for i in range(400) :
-        sm.compute_state(1)
-        print("time : %i seconds"%i)
-        print(sm.pos)
-        print(sm.speed)
-        print("\n\n")
+    ords = []
+    absc = []
+    
+    for i in range(2000) :
+        sm.compute_state(0.1)
+        if i==1000 :
+            sm.pitch=-0.2
+            sm.control_column = 0.0988
+        if i%30 == 0 :
+            ords.append(sm.pos[2])
+            absc.append(sm.pos[0])
+            #print("time : %i seconds"%i)
+            #print(sm.pos)
+            #print(sm.speed)
+            #print("\n\n")
+    return (absc,ords)
 
-test()
+def aff(absc,ords) :
+    plt.scatter(absc,ords)
+    plt.show()
+
+aff(*test())
