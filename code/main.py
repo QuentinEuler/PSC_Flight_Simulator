@@ -8,26 +8,33 @@ def main() :
 
     ords = []
     absc = []
+    color = []
 
-    for h in range (3) :
-        sm = smlt.SimConnect(["thrust","weight","lift","drag"])
+    for h in range(1000) :
+        sm = smlt.SimConnect(["lift","thrust","weight","drag"])
         sim.sim.__init__(sm)
-        for i in range(30) :
+
+        agent.start()
+        for i in range(1000) :
             sm.compute_state(1)
-            agent.compute()
+            agent.compute(terminal=(i==999))
         print(h)
+        print("")
 
 
-    sm = smlt.SimConnect(["thrust","weight","lift","drag"])
+    sm = smlt.SimConnect(["lift","thrust","weight","drag"])
     sim.sim.__init__(sm)
-    for i in range(100) :
+    agent.start()
+    for i in range(800) :
         sm.compute_state(1)
-        agent.compute()
+        agent.compute(False)
 
         if i%3 == 0 :
             ords.append(sim.call("alt"))
             absc.append(sim.call("lat"))
-    plt.scatter(absc,ords)
+            color.append(i/1001)
+    plt.scatter(absc,ords,c=color)
+    plt.plot(absc,ords)
     plt.show()
 
     return 0
