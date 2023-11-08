@@ -88,9 +88,6 @@ class SimConnect() :
         accel = 1/self.MASS * resulting_force
 
         self.speed = self.speed + accel*dt
-       
-        #if self.abs_speed() > 1000 :
-            #self.speed =self.speed*1000/self.abs_speed() 
 
         self.pos = self.pos + self.speed*dt
 

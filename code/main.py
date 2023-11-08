@@ -6,26 +6,30 @@ import matplotlib.pyplot as plt
 def main() :
     agent = ag.Agent(ag.AI())
 
-    ords = []
-    absc = []
-    color = []
-
     for h in range(1000) :
         sm = smlt.SimConnect(["lift","thrust","weight","drag"])
         sim.sim.__init__(sm)
 
         agent.start()
-        for i in range(1000) :
+        for i in range(300) :
             sm.compute_state(1)
-            agent.compute(terminal=(i==999))
+            agent.compute(terminal=(i==99))
         print(h)
         print("")
 
+    show(agent)
+
+    return 0
+
+def show(agent) :
+    ords = []
+    absc = []
+    color = []
 
     sm = smlt.SimConnect(["lift","thrust","weight","drag"])
     sim.sim.__init__(sm)
     agent.start()
-    for i in range(800) :
+    for i in range(100) :
         sm.compute_state(1)
         agent.compute(False)
 
@@ -36,7 +40,5 @@ def main() :
     plt.scatter(absc,ords,c=color)
     plt.plot(absc,ords)
     plt.show()
-
-    return 0
 
 main()
