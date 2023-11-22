@@ -6,16 +6,14 @@ import matplotlib.pyplot as plt
 def main() :
     agent = ag.Agent(ag.AI())
 
-    for h in range(1000) :
-        sm = smlt.SimConnect(["lift","thrust","weight","drag"])
+    for h in range(10) :
+        sm = smlt.SimConnect(["thrust","drag"])
         sim.sim.__init__(sm)
 
         agent.start()
         for i in range(300) :
             sm.compute_state(1)
-            agent.compute(terminal=(i==99))
-        print(h)
-        print("")
+            agent.compute()
 
     show(agent)
 
@@ -26,12 +24,12 @@ def show(agent) :
     absc = []
     color = []
 
-    sm = smlt.SimConnect(["lift","thrust","weight","drag"])
+    sm = smlt.SimConnect(["thrust","drag"])
     sim.sim.__init__(sm)
     agent.start()
-    for i in range(100) :
+    for i in range(300) :
         sm.compute_state(1)
-        agent.compute(False)
+        agent.compute()
 
         if i%3 == 0 :
             ords.append(sim.call("alt"))
