@@ -3,6 +3,8 @@ import simconnect_interface as sim
 import agent as ag
 import matplotlib.pyplot as plt
 
+import torch
+
 def main() :
     agent = ag.Agent(ag.AI())
 
@@ -11,11 +13,14 @@ def main() :
         sim.sim.__init__(sm)
 
         agent.start()
-        for i in range(300) :
+        for i in range(30) :
             sm.compute_state(1)
             agent.compute()
 
-    show(agent)
+        print(agent.total_reward)
+        print(agent.ai(torch.tensor([0,0.3,0.5,0])))
+
+    #show(agent)
 
     return 0
 
