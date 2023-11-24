@@ -17,6 +17,7 @@ class AI(torch.nn.Module) :
         self.linear5 = torch.nn.Linear(128,128)
         self.activation5 = torch.nn.ReLU()
         self.linear6 = torch.nn.Linear(128,1)
+        self.activation6 = torch.nn.Sigmoid()
 
     def forward(self, x) :
         x = self.linear1(x)
@@ -30,23 +31,28 @@ class AI(torch.nn.Module) :
         x = self.linear5(x)
         x = self.activation5(x)
         x = self.linear6(x)
+        x = self.activation6(x)
         return x
 
 class Agent :
     def __init__(self, a) :
         self.ai = a
-        self.optimizer = torch.optim.SGD(self.ai.parameters(), lr = 0.03)
+        self.optimizer = torch.optim.SGD(self.ai.parameters(), lr = 0.01, momentum=0.9)
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer,gamma=0.9)
         self.time=0
+        self.total_reward=0
 
         self.last_chosen_action = None
 
-        self.total_reward=0
-
     def start(self) :
         self.time = 0
-        self.GAMMA = 0
+        self.GAMMA = 0.09
 
         self.total_reward=0
+
+        self.ai_ = AI()
+        self.ai_.load_state_dict(self.ai.state_dict())
+        self.scheduler.step()
 
     # this function interact with the plane
     # use functions defined in simconnect_interface to interact with the plane
@@ -56,7 +62,7 @@ class Agent :
         Y=[0,0,0]
         for a in [-1,0,1] :
             X = torch.tensor([sim.call("alt"), sim.call("pitch"), sim.call("abs_speed"), a])
-            Y[a+1] = self.ai(X)
+            Y[a+1] = self.ai_(X)
 
         max_a = 0
         a=0
@@ -66,10 +72,9 @@ class Agent :
                 a = i
 
         if self.time>1 :
-            R = 0.7/((sim.call("alt")-100)**2 + 1)
+            R = np.exp(-((sim.call("alt")-100)/40)**2)
             S = Y[a+1].item()
-            loss = (Y[a+1] - (R + self.GAMMA * S))**2
-            print(loss)
+            loss = (self.ai(self.last_chosen_action) - (R + self.GAMMA * S))**2
             loss.backward()
 
             self.optimizer.step()
@@ -77,7 +82,8 @@ class Agent :
 
             self.total_reward+=R
 
-        self.last_chosen_action = Y[a+1]
+        self.last_chosen_action = torch.tensor([sim.call("alt"), sim.call("pitch"), sim.call("abs_speed"), a])
+
 
         sim.set("elevators", a)
 

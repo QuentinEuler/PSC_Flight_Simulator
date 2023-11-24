@@ -8,19 +8,18 @@ import torch
 def main() :
     agent = ag.Agent(ag.AI())
 
-    for h in range(10) :
+    for h in range(1000) :
         sm = smlt.SimConnect(["thrust","drag"])
         sim.sim.__init__(sm)
 
         agent.start()
-        for i in range(30) :
+        for i in range(40) :
             sm.compute_state(1)
             agent.compute()
 
         print(agent.total_reward)
-        print(agent.ai(torch.tensor([0,0.3,0.5,0])))
 
-    #show(agent)
+    show(agent)
 
     return 0
 
@@ -32,7 +31,7 @@ def show(agent) :
     sm = smlt.SimConnect(["thrust","drag"])
     sim.sim.__init__(sm)
     agent.start()
-    for i in range(300) :
+    for i in range(40) :
         sm.compute_state(1)
         agent.compute()
 
