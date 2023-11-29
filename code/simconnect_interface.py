@@ -57,6 +57,8 @@ def set(arg, val) :
         sim.ae.set("ELEVATOR_POSITION", val)
     if arg == "control_column" :
         sim.ae.set("CONTROL_COLUMN", val)
+    if arg == "pitch" :
+        sim.ae.set("PITCH", val)
 
 #Pour tester un appel :
 #get("cap")

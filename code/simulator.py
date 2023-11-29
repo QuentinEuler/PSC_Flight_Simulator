@@ -87,11 +87,11 @@ class SimConnect() :
 
         accel = 1/self.MASS * resulting_force
 
-        self.speed = self.speed + accel*dt
+        self.speed = 70*self.direction()#self.speed + accel*dt
 
         self.pos = self.pos + self.speed*dt
 
-        self.pitch = (self.pitch + self.MAX_ROTATION_RATE * self.elevators + np.pi) % (2*np.pi) - np.pi
+        #self.pitch = (self.pitch + self.MAX_ROTATION_RATE * self.elevators + np.pi) % (2*np.pi) - np.pi
 
 class AircraftRequests() :
     def __init__(self, sm, _time) :
@@ -135,6 +135,8 @@ class AircraftEvents() :
             self.plane.elevators = val
         if arg == "CONTROL_COLUMN" :
             self.plane.control_column = val
+        if arg == "PITCH" :
+            self.plane.pitch = val
 
 def test() :
     sm = SimConnect(["thrust","weight","lift","drag"])
