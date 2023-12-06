@@ -88,10 +88,11 @@ class SimConnect() :
         accel = 1/self.MASS * resulting_force
 
         self.speed = 70*self.direction()#self.speed + accel*dt
+        #correct line : self.speed = self.speed + accel*dt
 
         self.pos = self.pos + self.speed*dt
 
-        #self.pitch = (self.pitch + self.MAX_ROTATION_RATE * self.elevators + np.pi) % (2*np.pi) - np.pi
+        #correct line : self.pitch = (self.pitch + self.MAX_ROTATION_RATE * self.elevators + np.pi) % (2*np.pi) - np.pi
 
 class AircraftRequests() :
     def __init__(self, sm, _time) :
