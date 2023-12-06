@@ -61,18 +61,18 @@ class Agent :
             #R = np.exp(-((sim.call("alt")-100)/40)**2)
             R=0
             if True :#self.time<150 :
-                if sim.call("alt") >100 and sim.call("alt") <2000 :
+                if sim.call("alt") > 100 and sim.call("alt") < 2000 :
                     R=1
-                elif sim.call("alt") < -1000 or sim.call("alt")>5000 :
+                elif sim.call("alt") < -1000 or sim.call("alt") > 5000 :
                     R=-1
-                elif sim.call("alt") < 100 or sim.call("alt")>2000 :
+                elif sim.call("alt") < 100 or sim.call("alt") > 2000 :
                     R=-0.3
             else :
-                if sim.call("alt") >800 and sim.call("alt") <1200 :
+                if sim.call("alt") > 800 and sim.call("alt") < 1200 :
                     R=1
-                elif sim.call("alt") < -1000 or sim.call("alt")>5000 :
+                elif sim.call("alt") < -1000 or sim.call("alt") > 5000 :
                     R=-0.1
-                elif sim.call("alt") < 100 or sim.call("alt")>12000 :
+                elif sim.call("alt") < 100 or sim.call("alt") > 12000 :
                     R=-0.03
 
             S = Q[a+1].item()

@@ -5,24 +5,23 @@ import matplotlib.pyplot as plt
 
 import torch
 
+BATCH_SIZE = 10000
+FLIGHT_DURATION = 300
+
 def main() :
     agent = ag.Agent(ag.AI())
 
-    for h in range(10000) :
-        sm = smlt.SimConnect(["thrust","drag"])
+    for h in range(BATCh_SIZE) :
+        sm = smlt.SimConnect([])
         sim.sim.__init__(sm)
 
         agent.start()
-        for i in range(300) :
+        for i in range(FLIGHT_DURATION) :
             sm.compute_state(1)
-            if i%10==0 :
-                agent.compute(dt=3)
-        print(agent.total_reward)
-        #agent.scheduler.step()
+            agent.compute()
+
         if h%40==0 :
             show(agent)
-
-        #print(agent.total_reward)
 
     show(agent)
 
@@ -36,10 +35,9 @@ def show(agent) :
     sm = smlt.SimConnect(["thrust","drag"])
     sim.sim.__init__(sm)
     agent.start()
-    for i in range(300) :
+    for i in range(FLIGHT_DURATION) :
         sm.compute_state(1)
-        if i%3==0 :
-            agent.compute(dt=3)
+        agent.compute()
 
         if i%3 == 0 :
             ords.append(sim.call("alt"))
