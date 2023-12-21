@@ -11,7 +11,7 @@ FLIGHT_DURATION = 300
 def main() :
     agent = ag.Agent(ag.AI())
 
-    for h in range(BATCh_SIZE) :
+    for h in range(BATCH_SIZE) :
         sm = smlt.SimConnect([])
         sim.sim.__init__(sm)
 
@@ -32,7 +32,7 @@ def show(agent) :
     absc = []
     color = []
 
-    sm = smlt.SimConnect(["thrust","drag"])
+    sm = smlt.SimConnect([])
     sim.sim.__init__(sm)
     agent.start()
     for i in range(FLIGHT_DURATION) :

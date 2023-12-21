@@ -1,6 +1,7 @@
 import simconnect_interface as sim
 import numpy as np
 import torch
+import simulator as smlt
 
 class AI(torch.nn.Module) :
     def __init__(self) :
@@ -22,7 +23,7 @@ class AI(torch.nn.Module) :
         x = self.linear6(x)
         return x
 
-class Agent :
+class Agent2 :
     def __init__(self, a) :
         self.ai = a
         self.optimizer = torch.optim.SGD(self.ai.parameters(), lr = 0.01, momentum=0.9)
@@ -90,13 +91,87 @@ class Agent :
         
         self.time+=dt
 
-# example of a compute function
-#    def compute(self) :
-#        if sim.call("alt") < 10 :
-#            sim.set("control_column", 1)
-#            sim.set("elevators", 0)
-#        elif sim.call("alt") < 1000 :
-#            sim.set("elevators", 0)
-#        else :
-#            sim.set("elevator", -1)
-#            sim.set("control_column", 0.0988)
+class Agent :
+    def __init__(self, ai, ep = 1000, fd = 30, lr=0.03, gr=0.9, era = 0.7, gep = 0.9, gls = 0.7) :
+        # hyperparameters
+        self.EPOCHS = ep
+        self.FLIGHT_DURATION = fd
+
+        self.LEARNING_RATE = lr
+        self.GAMMA_LR = gr
+        
+        self.EPS_RANDOM_ACTION = era
+        self.GAMMA_EPS = gep
+
+        self.GAMMA_LOSS = gls
+
+        # model and learning module
+        self.ai = ai
+        self.optimizer = torch.optim.SGD(self.ai.parameters(), lr = self.LEARNING_RATE)
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer,gamma=self.GAMMA_LR)
+
+        # defining actions
+        self.actions = [0, 0.5, 1]
+
+    def state(self) :
+        return [sim.call("alt"), sim.call("lat")]
+
+    def Q(self, a, s) :
+        s[0]=s[0]/1000 + 0.5
+        if s[0] < 0 :
+            s[0] = 0
+        if s[0] > 1 :
+            s[0] = 1
+        args = torch.tensor([a, s[0]])
+        return self.ai(args)
+
+    def chose_action(self, p=0) :
+        chosen_A=-1
+        e = torch.rand()
+        if e < p :
+            i = torch.randint(0,len(self.actions))
+            chosen_A = self.actions[i]
+        else :
+            max_A = -1
+            for a in self.actions :
+                v = self.Q(a, self.state())
+                if v > max_A :
+                    max_A = v
+                    chosen_A = a
+        return chosen_A
+
+    def compute(self, a) :
+        sim.set("pitch", (2*a-1)*np.pi/8)
+
+    def learn(self) :
+
+
+    def train(self) :
+        for i in range(self.EPOCHS) :
+            sm = smlt.SimConnect([])
+            sim.sim.__init__(sm)
+
+            At = []
+            St = []
+
+            for t in range(self.FLIGHT_DURATION) :
+                a = self.chose_action(self.EPS_RANDOM_ACTION)
+                At.append(a)
+                St.append(self.state())
+
+                self.compute(a)
+                sm.compute_state()
+            self.learn()
+
+
+
+    def fly(self, t_max) :
+        F=[]
+        for t in range(t_max) :
+            a = self.chose_action()
+            self.compute(a)
+            sm.compute_state()
+            F.append((sim.call("alt"), sim.call("lat")))
+        return F
+
+    def save(self) :
