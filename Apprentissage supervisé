@@ -1,0 +1,178 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from SimConnect import *
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import time
+
+# Note importante : afin de pouvoir aggrandir aisément la base de données à chaque nouvel enregistrement, on utilise deux couples de fichiers : "temp_X" et "temp_Y", dans lesquels l'enregistrement écrit les données,
+# qui sont réinitialisés à chaque nouvel enregistrement, et "dataX" et "dataY", qu'il faut aggrandir après chaque nouvel enregistrement en y collant le contenu des deux précédents, forment la base de données exploitée
+# par le réseau pour son entraînement et sont les fichiers lus par la fonction d'importation du dataset.
+
+def new_dataset(t_alt = 4000, t = 5000):
+    # Enregistrement d'un set de données
+    # Paramètres :  t_alt est l'altitude cible maintenue par le joueur
+    #               t est le nombre de valeurs à collecter
+
+    # Etablissement du lien avec MSFS :
+
+    sm = SimConnect()
+    aq = AircraftRequests(sm, _time=2000)
+
+    def cur_state(t_alt):
+        cur = []
+
+        cur.append(aq.get("PLANE_ALTITUDE") / (2 * t_alt))
+        cur.append((aq.get("PLANE_PITCH_DEGREES") + np.pi / 2) / np.pi)
+        cur.append((aq.get("PLANE_BANK_DEGREES") + np.pi / 2) / np.pi)
+        cur.append(aq.get("AIRSPEED_TRUE") / 600)
+        cur.append((aq.get("ELEVATOR_POSITION") + 1) / 2)
+        cur.append((aq.get("AILERON_POSITION") + 1) / 2)
+
+        return cur
+
+    # Ecriture des données collectées en jeu dans des documents :
+
+    fileX = open("temp_X.txt", "w")
+    fileY = open("temp_Y.txt", "w")
+
+    for i in range(t):
+
+        cur = cur_state(t_alt)
+        elev0 = cur[-2]
+        lat0 = cur[-1]
+        for j in range(len(cur)):
+            fileX.write(str(cur[j])+" ")
+        fileX.write("\n")
+
+        y = [0.5, 0.5]
+        time.sleep(1)
+        elev = (aq.get("ELEVATOR_POSITION") + 1) / 2
+        lat = (aq.get("AILERON_POSITION") + 1) / 2
+        if elev < elev0 :
+            y[0] = 0
+        elif elev > elev0 :
+            y[0] = 1
+        if lat < lat0 :
+            y[1] = 0
+        elif lat > lat0 :
+            y[1] = 1
+        fileY.write(str(y[0])+" "+str(y[1])+"\n")
+
+        print(str(i) + " valeurs enregistrées")
+
+    fileX.close()
+    fileY.close()
+
+def import_data():
+
+    dataX = []
+    dataY = []
+
+    with open('dataX.txt', 'r') as fileX:
+        lines = fileX.readlines()
+    for line in lines:
+        val = [float(num) for num in line.split()]
+        dataX.append(val)
+
+    with open('dataY.txt', 'r') as fileY:
+        lines = fileY.readlines()
+    for line in lines:
+        val = [float(num) for num in line.split()]
+        dataY.append(val)
+
+    fileX.close()
+    fileY.close()
+    return dataX, dataY
+
+# Architecture du modèle :
+
+model = nn.Sequential(
+    nn.Linear(6, 12),
+    nn.ReLU(),
+    nn.Linear(12, 24),
+    nn.ReLU(),
+    nn.Linear(24,12),
+    nn.ReLU(),
+    nn.Linear(12,2),
+    nn.ReLU()
+)
+
+# Algorithme d'entrainement :
+
+def training(datasetX, datasetY):
+
+    n_epochs = len(datasetX)//10
+    batch_size = 10
+
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    X = torch.tensor([datasetX[i] for i in range(len(datasetX))], dtype=torch.float32)
+    y = torch.tensor([datasetY[i] for i in range(len(datasetY))], dtype=torch.float32)
+
+    for epoch in range(n_epochs):
+        for i in range(0, len(X) - batch_size, batch_size):
+            Xbatch = X[i: i + batch_size]
+            y_model = model(Xbatch)
+            y_batch = y[i: i + batch_size]
+            loss = torch.sum(torch.sub(y_model, y_batch) ** 2)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        print("Finished epoch " + str(epoch) + ", latest loss " + str(loss.item()))
+
+
+# Vol test sur Flight Simulator :
+
+def test_flight(t_alt = 4000, t = 240):
+
+    sm = SimConnect()
+    aq = AircraftRequests(sm, _time=2000)
+    ae = AircraftEvents(sm)
+
+    def cur_state(t_alt):
+        cur = []
+
+        cur.append(aq.get("PLANE_ALTITUDE") / (2 * t_alt))
+        cur.append((aq.get("PLANE_PITCH_DEGREES") + np.pi / 2) / np.pi)
+        cur.append((aq.get("PLANE_BANK_DEGREES") + np.pi / 2) / np.pi)
+        cur.append(aq.get("AIRSPEED_TRUE") / 600)
+        cur.append((aq.get("ELEVATOR_POSITION") + 1) / 2)
+        cur.append((aq.get("AILERON_POSITION") + 1) / 2)
+
+        return cur
+
+    alt = []
+    for i in range(t):
+
+        alt_n = aq.get("PLANE_ALTITUDE")
+        alt.append(alt_n)
+
+        cur = cur_state(t_alt)
+        X = torch.tensor(cur, dtype=torch.float32)
+        y = model(X)
+        if y[0] < 0.45 :
+            ae.find("ELEV_DOWN")()
+            print("Step " + str(i) + ": Down")
+        elif y[0] > 0.55 :
+            ae.find("ELEV_UP")()
+            print("Step " + str(i) + ": Up")
+        elif y[1] < 0.45 :
+            ae.find("AILERONS_LEFT")()
+            print("Step "+str(i)+": Left")
+        elif y[1] > 0.55 :
+            ae.find("AILERONS_RIGHT")()
+            print("Step " + str(i) + ": Right")
+        else :
+            print("Step " + str(i) + ": Keep")
+        time.sleep(1)
+
+    plt.plot(range(t), alt)
+    plt.show()
+
+# Zone d'exécution :
+
+#new_dataset(4000, 600)
+dX, dY = import_data()
+training(dX, dY)
+test_flight(4000, 120)
