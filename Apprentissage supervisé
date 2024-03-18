@@ -199,7 +199,7 @@ def test_flight(model, t_alt=4000, t=500):
             #ailer.append(1)
 
         line_alt.set_data(range(i + 1), alt)
-        line_elev.set_data(range(i + 1), [max(alt) * e for e in elev])
+        line_elev.set_data(range(i + 1), [t_alt * e for e in elev])
         #line_ailer.set_data(range(i + 1), [max(alt) * a for a in ailer])
         plt.pause(0.01)
 
@@ -233,4 +233,4 @@ NN_1 = load_model()
 #print(len(dX), len(dY))
 
 #training(NN_1, dX, dY)
-test_flight(NN_1,5400, 120)
+test_flight(NN_1,4000, 120)
