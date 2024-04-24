@@ -7,19 +7,44 @@ import torch.nn as nn
 import torch.optim as optim
 import time
 
-def new_dataset(t_alt=4000, t = 5000):
-    # Enregistrement d'un set de données
-    # Paramètres :  t_alt est l'altitude cible maintenue par le joueur
-    #               t est le nombre de valeurs à collecter
+def load_model(name, n, k):
+    loaded_checkpoint = torch.load(name)
+    loaded_model = nn.Sequential(
+    nn.Linear(n, k*n),
+    nn.ReLU(),
+    nn.Linear(k*n, 2*k*n),
+    nn.ReLU(),
+    nn.Linear(2*k*n,k*n),
+    nn.ReLU(),
+    nn.Linear(k*n,k),
+    nn.ReLU()
+    )
+    loaded_optimizer = optim.SGD(loaded_model.parameters(), lr=0.01)
+    loaded_model.load_state_dict(loaded_checkpoint['model_state_dict'])
+    loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
+    return(loaded_model)
 
-    # Etablissement du lien avec MSFS :
+NN_TakeOff = load_model('NN_TakeOff.pth', 6, 3)
+NN_Target_Altitude = load_model('NN_Target_Altitude.pth', 8, 2)
+
+def full_flight(t_alt=4000, t_alt_to=500, t=500):
 
     sm = SimConnect()
     aq = AircraftRequests(sm, _time=2000)
+    ae = AircraftEvents(sm)
 
-    def cur_state():
+    def cur_TakeOff():
         cur = []
+        cur.append(aq.get("PLANE_ALT_ABOVE_GROUND") / t_alt_to)
+        cur.append((aq.get("PLANE_PITCH_DEGREES") + np.pi / 2) / np.pi)
+        cur.append(aq.get("BRAKE_PARKING_POSITION"))
+        cur.append(aq.get("GENERAL_ENG_THROTTLE_LEVER_POSITION:1") / 100)
+        cur.append(aq.get("GROUND_VELOCITY") / 100)
+        cur.append((aq.get("ELEVATOR_POSITION") + 1) / 2)
+        return cur
 
+    def cur_Target_Altitude():
+        cur = []
         cur.append(aq.get("PLANE_ALTITUDE") / (2*t_alt))
         cur.append(aq.get("PLANE_ALT_ABOVE_GROUND") / (2*t_alt))
         cur.append((aq.get("PLANE_PITCH_DEGREES") + np.pi / 2) / np.pi)
@@ -28,127 +53,6 @@ def new_dataset(t_alt=4000, t = 5000):
         cur.append(abs(aq.get("GPS_COURSE_TO_STEER")-aq.get("PLANE_HEADING_DEGREES_TRUE"))/np.pi)
         cur.append((aq.get("ELEVATOR_POSITION") + 1) / 2)
         cur.append((aq.get("AILERON_POSITION") + 1) / 2)
-
-        return cur
-
-    # Ecriture des données collectées en jeu dans des documents :
-
-    fileX = open("temp_X.txt", "w")
-    fileY = open("temp_Y.txt", "w")
-
-    for i in range(t):
-
-        cur = cur_state()
-        elev0 = cur[-2]
-        lat0 = cur[-1]
-
-        y = [0.5, 0.5]
-        time.sleep(1)
-        elev = (aq.get("ELEVATOR_POSITION") + 1) / 2
-        lat = (aq.get("AILERON_POSITION") + 1) / 2
-        if elev < elev0 :
-            y[0] = 0
-        elif elev > elev0 :
-            y[0] = 1
-        if lat < lat0 :
-            y[1] = 0
-        elif lat > lat0 :
-            y[1] = 1
-
-        for j in range(len(cur)):
-            fileX.write(str(cur[j])+" ")
-        fileX.write("\n")
-        fileY.write(str(y[0])+" "+str(y[1])+"\n")
-
-        print(str(i) + " valeurs enregistrées ; " + str(y))
-
-    fileX.close()
-    fileY.close()
-
-def import_data():
-
-    dataX = []
-    dataY = []
-
-    with open('dataX.txt', 'r') as fileX:
-        lines = fileX.readlines()
-    for line in lines:
-        val = [float(num) for num in line.split()]
-        dataX.append(val)
-
-    with open('dataY.txt', 'r') as fileY:
-        lines = fileY.readlines()
-    for line in lines:
-        val = [float(num) for num in line.split()]
-        dataY.append(val)
-
-    fileX.close()
-    fileY.close()
-    return dataX, dataY
-
-# Architecture du modèle :
-
-model = nn.Sequential(
-    nn.Linear(8, 16),
-    nn.ReLU(),
-    nn.Linear(16, 32),
-    nn.ReLU(),
-    nn.Linear(32,16),
-    nn.ReLU(),
-    nn.Linear(16,2),
-    nn.ReLU()
-)
-
-# Algorithme d'entrainement :
-
-def training(model, datasetX, datasetY):
-
-    n_epochs = 10
-    n_batchs = len(datasetX)//10
-    batch_size = 10
-
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
-    X = torch.tensor([datasetX[i] for i in range(len(datasetX))], dtype=torch.float32)
-    y = torch.tensor([datasetY[i] for i in range(len(datasetY))], dtype=torch.float32)
-
-    for epoch in range(n_epochs):
-        for batch in range(n_batchs):
-            for i in range(0, len(X) - batch_size, batch_size):
-                Xbatch = X[i: i + batch_size]
-                y_model = model(Xbatch)
-                y_batch = y[i: i + batch_size]
-                loss = torch.sum(torch.sub(y_model, y_batch) ** 2)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-        print("Finished epoch " + str(epoch) + ", latest loss " + str(loss.item()))
-        checkpoint = {
-            'epoch': n_epochs,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-        }
-        torch.save(checkpoint, "NN_1.pth")
-
-# Vol test sur Flight Simulator :
-
-def test_flight(model, t_alt=4000, t=500):
-
-    sm = SimConnect()
-    aq = AircraftRequests(sm, _time=2000)
-    ae = AircraftEvents(sm)
-
-    def cur_state():
-        cur = []
-
-        cur.append(aq.get("PLANE_ALTITUDE") / (2 * t_alt))
-        cur.append(aq.get("PLANE_ALT_ABOVE_GROUND") / (2 * t_alt))
-        cur.append((aq.get("PLANE_PITCH_DEGREES") + np.pi / 2) / np.pi)
-        cur.append((aq.get("PLANE_BANK_DEGREES") + np.pi / 2) / np.pi)
-        cur.append(aq.get("AIRSPEED_TRUE") / 600)
-        cur.append(abs(aq.get("GPS_COURSE_TO_STEER") - aq.get("PLANE_HEADING_DEGREES_TRUE")) / np.pi)
-        cur.append((aq.get("ELEVATOR_POSITION") + 1) / 2)
-        cur.append((aq.get("AILERON_POSITION") + 1) / 2)
-
         return cur
 
     alt = []
@@ -158,79 +62,106 @@ def test_flight(model, t_alt=4000, t=500):
     plt.ion()  # Turn on interactive mode
 
     fig, ax = plt.subplots()
-    line_alt, = ax.plot([], [], label=('Altitude cible : '+str(t_alt)))
     line_elev, = ax.plot([], [], color="g", label='Elevator')
+    line_alt, = ax.plot([], [], label=('Altitude cible : '+str(t_alt)+' ft'))
     #line_ailer, = ax.plot([], [], color="r", label='Aileron')
     ax.set_xlim(0, t)
     ax.set_ylim(0, 2 * t_alt)
+    plt.text(t+5, t_alt/10, 'Down', va='bottom', ha='left', color='g')
+    plt.text(t+5, t_alt, 'Keep', va='center', ha='left', color='g')
+    plt.text(t+5, t_alt * 19/10, 'Up', va='top', ha='left', color='g')
     ax.legend()
 
-    for i in range(t):
+    ax.set_xlabel('Temps (s)')
+    ax.set_ylabel('Altitude (ft)')
+
+    c_alt = aq.get("PLANE_ALT_ABOVE_GROUND") / t_alt_to
+    i = 0
+
+    ae.find("THROTTLE_FULL")()
+    b = True
+
+    while c_alt < 1 and i < t :
+
         alt_n = aq.get("PLANE_ALTITUDE")
         alt.append(alt_n)
 
-        cur = cur_state()
+        cur = cur_TakeOff()
         X = torch.tensor(cur, dtype=torch.float32)
-        y = model(X)
+        y = NN_TakeOff(X)
+
+        if y[0] < 0.45:
+            ae.find("ELEV_DOWN")()
+            print("Step " + str(i) + ": Down")
+            elev.append(t_alt / 10)
+        elif y[0] > 0.55:
+            ae.find("ELEV_UP")()
+            print("Step " + str(i) + ": Up")
+            elev.append(t_alt * 19 / 10)
+        elif y[2] < 0.5 and b:
+            b = False
+            ae.find("PARKING_BRAKES")()
+            print("Step " + str(i) + ": Parking Break Down")
+            elev.append(t_alt)
+        else:
+            print("Step " + str(i) + ": Keep")
+            elev.append(t_alt)
+
+        line_elev.set_data(range(i + 1), elev)
+        line_alt.set_data(range(i + 1), alt)
+        #line_ailer.set_data(range(i + 1), [max(alt) * a for a in ailer])
+        plt.pause(0.01)
+
+        i += 1
+        time.sleep(1)
+        c_alt = cur[0]
+
+    print("Fin de la phase de décollage ;\nChangement de NN ;\n")
+
+    while i < t :
+
+        alt_n = aq.get("PLANE_ALTITUDE")
+        alt.append(alt_n)
+
+        cur = cur_Target_Altitude()
+        X = torch.tensor(cur, dtype=torch.float32)
+        y = NN_Target_Altitude(X)
 
         if y[0] < 0.45:
             ae.find("ELEV_DOWN")()
             print("Step " + str(i) + ": Down" + " - Alt : " + str(alt_n))
-            elev.append(0)
-            #ailer.append(1)
+            elev.append(t_alt / 10)
+            # ailer.append(1)
         elif y[0] > 0.55:
             ae.find("ELEV_UP")()
             print("Step " + str(i) + ": Up" + " - Alt : " + str(alt_n))
-            elev.append(2)
-            #ailer.append(0.5)
-        #elif y[1] < 0.45:
-            # ae.find("AILERONS_LEFT")()
-            #print("Step " + str(i) + ": Left" + " - Alt : " + str(alt_n))
-            #elev.append(1)
-            #ailer.append(0)
-        #elif y[1] > 0.55:
-            #ae.find("AILERONS_RIGHT")()
-            #print("Step " + str(i) + ": Right" + " - Alt : " + str(alt_n))
-            #elev.append(1)
-            #ailer.append(2)
+            elev.append(t_alt * 19 / 10)
+            # ailer.append(0.5)
+        # elif y[1] < 0.45:
+        # ae.find("AILERONS_LEFT")()
+        # print("Step " + str(i) + ": Left" + " - Alt : " + str(alt_n))
+        # elev.append(1)
+        # ailer.append(0)
+        # elif y[1] > 0.55:
+        # ae.find("AILERONS_RIGHT")()
+        # print("Step " + str(i) + ": Right" + " - Alt : " + str(alt_n))
+        # elev.append(1)
+        # ailer.append(2)
         else:
             print("Step " + str(i) + ": Keep" + " - Alt : " + str(alt_n))
-            elev.append(1)
-            #ailer.append(1)
+            elev.append(t_alt)
+            # ailer.append(1)
 
+        line_elev.set_data(range(i + 1), elev)
         line_alt.set_data(range(i + 1), alt)
-        line_elev.set_data(range(i + 1), [t_alt * e for e in elev])
-        #line_ailer.set_data(range(i + 1), [max(alt) * a for a in ailer])
+        # line_ailer.set_data(range(i + 1), [max(alt) * a for a in ailer])
         plt.pause(0.01)
 
+        i += 1
         time.sleep(1)
 
     plt.ioff()
     plt.show()
 
-def load_model():
-    loaded_checkpoint = torch.load('NN_1.pth')
-    loaded_model = nn.Sequential(
-    nn.Linear(8, 16),
-    nn.ReLU(),
-    nn.Linear(16, 32),
-    nn.ReLU(),
-    nn.Linear(32,16),
-    nn.ReLU(),
-    nn.Linear(16,2),
-    nn.ReLU()
-    )
-    loaded_optimizer = optim.SGD(loaded_model.parameters(), lr=0.01)
-    loaded_model.load_state_dict(loaded_checkpoint['model_state_dict'])
-    loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
-    return(loaded_model)
 
-# Zone d'exécution :
-
-#new_dataset(4000, 5000)
-NN_1 = load_model()
-#dX, dY = import_data()
-#print(len(dX), len(dY))
-
-#training(NN_1, dX, dY)
-test_flight(NN_1,4000, 120)
+full_flight(4000, 250, 500)
