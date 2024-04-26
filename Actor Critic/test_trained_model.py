@@ -39,7 +39,7 @@ for i in range(0, 30):
 
     plt.plot(tab_x, tab_alt)
     plt.axhline(y=2480, color='r', linestyle='--')
-    plt.xlabel('Abscisse')
+    plt.xlabel('Latitude')
     plt.ylabel('Altitude')
     plt.title('Vol de validation - Altitude cible 2480')
     plt.show()
