@@ -11,7 +11,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 def training_loop(env, policy_network, policy_optimizer, stateval_network, stateval_optimizer, i,  MODEL_PATH, NUM_EPISODES=750, MAX_STEPS=100, DISCOUNT_FACTOR=0.99):
     best_score = -float('inf')
     for episode in range(NUM_EPISODES):
-        # initialiser les variables en début d'épisode
+        # Initialiser les variables en début d'épisode
         state = env.reset()
         score = 0
         I = 1
@@ -19,9 +19,9 @@ def training_loop(env, policy_network, policy_optimizer, stateval_network, state
         tab_x = []
 
         for step in range(MAX_STEPS):
-            # obtenir les actions et les log-probabilités
+            # Obtenir les actions et les log-probabilités
             action, lp = select_action(policy_network, state)
-            # mettre à jour l'environnement
+            # Mettre à jour l'environnement
             new_state, reward, done = env.step(action)
 
             score += reward
@@ -66,7 +66,7 @@ def training_loop(env, policy_network, policy_optimizer, stateval_network, state
             best_score = score
             plt.figure()
             plt.plot(tab_x, tab_alt)
-            plt.xlabel('Abscisse')
+            plt.xlabel('Latitude')
             plt.ylabel('Altitude')
             plt.title(f"best flight - score : {best_score} - {episode + 1} - steps : {env.count}")
             plt.savefig(f"best_flight_score_{i}.png")
@@ -92,10 +92,10 @@ def training_loop(env, policy_network, policy_optimizer, stateval_network, state
             value_model_path = os.path.join(MODEL_PATH, value_model_name)
             torch.save(stateval_network.state_dict(), value_model_path)
 
-        # Afiichage régulier des vols du modèle pour suivre l'apprentissage
+        # Affichage régulier des vols du modèle pour suivre l'apprentissage
         if episode % 50 == 0:
             plt.plot(tab_x, tab_alt)
-            plt.xlabel('Abscissse')
+            plt.xlabel('Latitude')
             plt.ylabel('Altitude')
             plt.savefig('dernier_vol_affiché_')
             if episode % 1000 == 0:
