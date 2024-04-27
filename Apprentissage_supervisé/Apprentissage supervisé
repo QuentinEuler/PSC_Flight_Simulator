@@ -27,6 +27,25 @@ def load_model(name, n, k):
 NN_TakeOff = load_model('NN_TakeOff.pth', 6, 3)
 NN_Target_Altitude = load_model('NN_Target_Altitude.pth', 8, 2)
 
+def load_model_2(name):
+    loaded_checkpoint = torch.load(name)
+    loaded_model = nn.Sequential(
+    nn.Linear(4, 8),
+    nn.ReLU(),
+    nn.Linear(8, 16),
+    nn.ReLU(),
+    nn.Linear(16, 4),
+    nn.ReLU(),
+    nn.Linear(4,1),
+    nn.ReLU()
+    )
+    loaded_optimizer = optim.SGD(loaded_model.parameters(), lr=0.01)
+    loaded_model.load_state_dict(loaded_checkpoint['model_state_dict'])
+    loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
+    return(loaded_model)
+
+NN_Horizontal = load_model_2('NN_Horizontal.pth')
+
 def full_flight(t_alt=4000, t_alt_to=500, t=500):
 
     sm = SimConnect()
@@ -57,19 +76,21 @@ def full_flight(t_alt=4000, t_alt_to=500, t=500):
 
     alt = []
     elev = []
-    #ailer = []
+    ailer = []
 
     plt.ion()  # Turn on interactive mode
 
     fig, ax = plt.subplots()
     line_elev, = ax.plot([], [], color="g", label='Elevator')
     line_alt, = ax.plot([], [], label=('Altitude cible : '+str(t_alt)+' ft'))
-    #line_ailer, = ax.plot([], [], color="r", label='Aileron')
+    line_ailer, = ax.plot([], [], color="m", label='Aileron')
     ax.set_xlim(0, t)
     ax.set_ylim(0, 2 * t_alt)
     plt.text(t+5, t_alt/10, 'Down', va='bottom', ha='left', color='g')
-    plt.text(t+5, t_alt, 'Keep', va='center', ha='left', color='g')
+    plt.text(t+5, t_alt, 'Keep', va='center', ha='left')
     plt.text(t+5, t_alt * 19/10, 'Up', va='top', ha='left', color='g')
+    plt.text(t + 5, t_alt * 2 / 10, 'Left', va='bottom', ha='left', color='m')
+    plt.text(t + 5, t_alt * 18 / 10, 'Right', va='top', ha='left', color='m')
     ax.legend()
 
     ax.set_xlabel('Temps (s)')
@@ -107,9 +128,11 @@ def full_flight(t_alt=4000, t_alt_to=500, t=500):
             print("Step " + str(i) + ": Keep")
             elev.append(t_alt)
 
+        ailer.append(t_alt)
+
         line_elev.set_data(range(i + 1), elev)
         line_alt.set_data(range(i + 1), alt)
-        #line_ailer.set_data(range(i + 1), [max(alt) * a for a in ailer])
+        line_ailer.set_data(range(i + 1), ailer)
         plt.pause(0.01)
 
         i += 1
@@ -118,43 +141,46 @@ def full_flight(t_alt=4000, t_alt_to=500, t=500):
 
     print("Fin de la phase de décollage ;\nChangement de NN ;\n")
 
+    plt.axvline(x=i, color = 'r', label="Changement de réseau")
+
     while i < t :
 
         alt_n = aq.get("PLANE_ALTITUDE")
         alt.append(alt_n)
 
         cur = cur_Target_Altitude()
+        cur_horizontal = [cur[3], cur[4], cur[5], cur[7]]
         X = torch.tensor(cur, dtype=torch.float32)
+        X_horizontal = torch.tensor(cur_horizontal, dtype=torch.float32)
         y = NN_Target_Altitude(X)
+        y_horizontal = NN_Horizontal(X_horizontal)
 
         if y[0] < 0.45:
             ae.find("ELEV_DOWN")()
-            print("Step " + str(i) + ": Down" + " - Alt : " + str(alt_n))
+            print("Step " + str(i) + ": Elevators - Down")
             elev.append(t_alt / 10)
-            # ailer.append(1)
         elif y[0] > 0.55:
             ae.find("ELEV_UP")()
-            print("Step " + str(i) + ": Up" + " - Alt : " + str(alt_n))
+            print("Step " + str(i) + ": Elevators - Up")
             elev.append(t_alt * 19 / 10)
-            # ailer.append(0.5)
-        # elif y[1] < 0.45:
-        # ae.find("AILERONS_LEFT")()
-        # print("Step " + str(i) + ": Left" + " - Alt : " + str(alt_n))
-        # elev.append(1)
-        # ailer.append(0)
-        # elif y[1] > 0.55:
-        # ae.find("AILERONS_RIGHT")()
-        # print("Step " + str(i) + ": Right" + " - Alt : " + str(alt_n))
-        # elev.append(1)
-        # ailer.append(2)
         else:
-            print("Step " + str(i) + ": Keep" + " - Alt : " + str(alt_n))
+            print("Step " + str(i) + ": Elevators - Keep")
             elev.append(t_alt)
-            # ailer.append(1)
+        if y_horizontal[0] < 0.45:
+            ae.find("AILERONS_LEFT")()
+            print("Step " + str(i) + ": Ailerons - Left")
+            ailer.append(t_alt / 10)
+        elif y_horizontal[0] > 0.55:
+            ae.find("AILERONS_RIGHT")()
+            print("Step " + str(i) + ": Ailerons - Right")
+            ailer.append(t_alt * 19 / 10)
+        else:
+            print("Step " + str(i) + ": Ailerons - Keep")
+            ailer.append(t_alt)
 
         line_elev.set_data(range(i + 1), elev)
         line_alt.set_data(range(i + 1), alt)
-        # line_ailer.set_data(range(i + 1), [max(alt) * a for a in ailer])
+        line_ailer.set_data(range(i + 1), ailer)
         plt.pause(0.01)
 
         i += 1
@@ -164,4 +190,4 @@ def full_flight(t_alt=4000, t_alt_to=500, t=500):
     plt.show()
 
 
-full_flight(4000, 250, 500)
+full_flight(1500, 100, 120)
