@@ -1,0 +1,206 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from SimConnect import *
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import time
+
+def new_dataset(t = 5000):
+
+    # Etablissement du lien avec MSFS :
+
+    sm = SimConnect()
+    aq = AircraftRequests(sm, _time=2000)
+
+    def cur_state():
+        cur = []
+
+        cur.append((aq.get("PLANE_BANK_DEGREES") + np.pi / 2) / np.pi)
+        cur.append(aq.get("AIRSPEED_TRUE") / 600)
+        cur.append(abs(aq.get("GPS_COURSE_TO_STEER")-aq.get("PLANE_HEADING_DEGREES_TRUE"))/np.pi)
+        cur.append((aq.get("AILERON_POSITION") + 1) / 2)
+
+        return cur
+
+    # Ecriture des données collectées en jeu dans des documents :
+
+    fileX = open("temp_X.txt", "w")
+    fileY = open("temp_Y.txt", "w")
+
+    for i in range(t):
+
+        cur = cur_state()
+        lat0 = cur[-1]
+
+        y = [0.5]
+        time.sleep(1)
+        lat = (aq.get("AILERON_POSITION") + 1) / 2
+        if lat0 - lat > 0.03 :
+            y[0] = 0
+        elif lat - lat0 > 0.03 :
+            y[0] = 1
+
+        for j in range(len(cur)):
+            fileX.write(str(cur[j])+" ")
+        fileX.write("\n")
+        fileY.write(str(y[0])+"\n")
+
+        print(str(i) + " valeurs enregistrées ; " + str(y))
+
+    fileX.close()
+    fileY.close()
+
+def import_data():
+
+    dataX = []
+    dataY = []
+
+    with open('data_X.txt', 'r') as fileX:
+        lines = fileX.readlines()
+    for line in lines:
+        val = [float(num) for num in line.split()]
+        dataX.append(val)
+
+    with open('data_Y.txt', 'r') as fileY:
+        lines = fileY.readlines()
+    for line in lines:
+        val = [float(num) for num in line.split()]
+        dataY.append(val)
+
+    fileX.close()
+    fileY.close()
+    return dataX, dataY
+
+# Architecture du modèle :
+
+model = nn.Sequential(
+    nn.Linear(4, 8),
+    nn.ReLU(),
+    nn.Linear(8, 16),
+    nn.ReLU(),
+    nn.Linear(16, 4),
+    nn.ReLU(),
+    nn.Linear(4,1),
+    nn.ReLU()
+)
+
+# Algorithme d'entrainement :
+
+def training(model, datasetX, datasetY):
+
+    n_epochs = 10
+    n_batchs = len(datasetX)//10
+    batch_size = 10
+
+    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    X = torch.tensor([datasetX[i] for i in range(len(datasetX))], dtype=torch.float32)
+    y = torch.tensor([datasetY[i] for i in range(len(datasetY))], dtype=torch.float32)
+
+    for epoch in range(n_epochs):
+        for batch in range(n_batchs):
+            for i in range(0, len(X) - batch_size, batch_size):
+                Xbatch = X[i: i + batch_size]
+                y_model = model(Xbatch)
+                y_batch = y[i: i + batch_size]
+                loss = torch.sum(torch.sub(y_model, y_batch) ** 2)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+        print("Finished epoch " + str(epoch) + ", latest loss " + str(loss.item()))
+        checkpoint = {
+            'epoch': n_epochs,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+        }
+        torch.save(checkpoint, "NN_Horizontal.pth")
+
+# Vol test sur Flight Simulator :
+
+def test_flight(model, t_alt=4000, t=500):
+
+    sm = SimConnect()
+    aq = AircraftRequests(sm, _time=2000)
+    ae = AircraftEvents(sm)
+
+    def cur_state():
+        cur = []
+
+        cur.append((aq.get("PLANE_BANK_DEGREES") + np.pi / 2) / np.pi)
+        cur.append(aq.get("AIRSPEED_TRUE") / 600)
+        cur.append(abs(aq.get("GPS_COURSE_TO_STEER") - aq.get("PLANE_HEADING_DEGREES_TRUE")) / np.pi)
+        cur.append((aq.get("AILERON_POSITION") + 1) / 2)
+
+        return cur
+
+    ailer = []
+
+    plt.ion()  # Turn on interactive mode
+
+    fig, ax = plt.subplots()
+    line_ailer, = ax.plot([], [], color="r", label='Aileron')
+    ax.set_xlim(0, t)
+    ax.set_ylim(0, 2 * t_alt)
+    plt.text(t+5, t_alt/10, 'Down', va='bottom', ha='left', color='g')
+    plt.text(t+5, t_alt, 'Keep', va='center', ha='left', color='g')
+    plt.text(t+5, t_alt * 19/10, 'Up', va='top', ha='left', color='g')
+    ax.legend()
+
+    ax.set_xlabel('Temps (s)')
+    ax.set_ylabel('Ailerons')
+
+    for i in range(t):
+        alt_n = aq.get("PLANE_ALTITUDE")
+
+        cur = cur_state()
+        X = torch.tensor(cur, dtype=torch.float32)
+        y = model(X)
+
+        if y[0] < 0.45:
+            ae.find("AILERONS_LEFT")()
+            print("Step " + str(i) + ": Down" + " - Alt : " + str(alt_n))
+            ailer.append(t_alt/10)
+        elif y[0] > 0.55:
+            ae.find("AILERONS_RIGHT")()
+            print("Step " + str(i) + ": Up" + " - Alt : " + str(alt_n))
+            ailer.append(t_alt * 19/10)
+        else:
+            print("Step " + str(i) + ": Keep" + " - Alt : " + str(alt_n))
+            ailer.append(t_alt)
+
+        line_ailer.set_data(range(i + 1), ailer)
+        plt.pause(0.01)
+
+        time.sleep(1)
+
+    plt.ioff()
+    plt.show()
+
+def load_model():
+    loaded_checkpoint = torch.load('NN_Horizontal.pth')
+    loaded_model = nn.Sequential(
+    nn.Linear(4,8),
+    nn.ReLU(),
+    nn.Linear(8,16),
+    nn.ReLU(),
+    nn.Linear(16,4),
+    nn.ReLU(),
+    nn.Linear(4,1),
+    nn.ReLU()
+    )
+    loaded_optimizer = optim.SGD(loaded_model.parameters(), lr=0.01)
+    loaded_model.load_state_dict(loaded_checkpoint['model_state_dict'])
+    loaded_optimizer.load_state_dict(loaded_checkpoint['optimizer_state_dict'])
+    return(loaded_model)
+
+# Zone d'exécution :
+
+#new_dataset(5000)
+NN = load_model()
+dX, dY = import_data()
+#print(len(dX), len(dY))
+
+training(NN, dX, dY)
+
+#test_flight(NN,3400, 300)
