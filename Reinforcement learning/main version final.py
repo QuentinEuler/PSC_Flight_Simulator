@@ -19,7 +19,7 @@ class apprentissage():
         #Paramètres d'apprentissage :
         lr = 0.001 #Learning rate
         gamma = 0.8 #Paramètres gamma du Q-Learning
-        N = 25 #Taille mini-batchs
+        N = 3 #Taille mini-batchs
         reward = ag.polynomialCos_reward #Fonction de reward
         
         #Agent de la classe agent que nous allons entraîner
@@ -32,7 +32,7 @@ class apprentissage():
         self.R = [] #Garde en mémoire le reward
 
         
-        self.precision = 1 #Paramètre de précision du simulateur
+        self.precision = 5 #Paramètre de précision du simulateur
         
         
         
@@ -75,9 +75,8 @@ class apprentissage():
                 if random.random()< proba :
                     self.etat_aleatoire()
                     
-                #Sinon on choisit l'action     
-                else:
-                    self.agent.compute() 
+   
+                self.agent.compute() 
                     
                     
                 self.update_simulator(self.precision, self.sm) #On met à jour l'avion
@@ -110,7 +109,7 @@ class apprentissage():
             #On initialise le vol
             self.sm = smlt.SimConnect(["lift","thrust","weight","drag"])
             sim.sim.__init__(self.sm)
-            altDebut = 800
+            altDebut = 600
             proba = 0
             self.agent.start(proba,altDebut)
             self.sm.pos = [0,0,altDebut]
@@ -158,4 +157,4 @@ class apprentissage():
         self.sm.pitch = theta
         
 ap = apprentissage()
-ap.boucle_apprentissage(10000)    
+ap.boucle_apprentissage(1000000)    

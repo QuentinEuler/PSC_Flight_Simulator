@@ -62,11 +62,11 @@ class AI(torch.nn.Module) :
             
         #Définitions des couches du réseau de neurones
         
-        self.linear1 = torch.nn.Linear(3,30)
+        self.linear1 = torch.nn.Linear(3,300)
         self.activation1 = torch.nn.Sigmoid()
-        self.linear2 = torch.nn.Linear(30,60)
+        self.linear2 = torch.nn.Linear(300,10)
         self.activation2 = torch.nn.Sigmoid()
-        self.linear3 = torch.nn.Linear(60,1)
+        self.linear3 = torch.nn.Linear(10,1)
 
 
 
@@ -112,6 +112,7 @@ class Agent :
     def start(self,proba,altitude) : #Remet à 0 la mémoire de l'agent pour un nouveau vol 
         sim.set("alt", altitude)
         self.proba = proba
+        self.R = []
         self.sommeR = 0
         self.sommeL = 0
 
@@ -135,15 +136,16 @@ class Agent :
         r = self.reward2(s,a,sm)
         self.R.append((s,a,r,self.state()))
         self.sommeR += self.reward(s)
+        n = len(self.R)
         if (len(self.R) > self.N):
             Y = torch.tensor([float(0)])
             
             #On choisit les N étapes dans la mémoire qui seront pris en compte
             for i in range(self.N):
                 if i == (self.N - 1):
-                    k = self.N - 1
+                    k = n - 2
                 else:
-                    k = randint(0,self.N-1)
+                    k = randint(0,n-2)
                 s,a,r,s2 = self.R[k]
                 Y +=(r - self.Q(s,a))**2
             loss = 1/self.N * Y
